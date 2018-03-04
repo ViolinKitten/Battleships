@@ -1,8 +1,19 @@
-import pygame as pg
+import pygame
+import numpy
+
+
+def grayscale(img):
+    arr = pygame.surfarray.array3d(img)
+    # luminosity filter
+    avgs = [[(r * 0.298 + g * 0.587 + b * 0.114) for (r, g, b) in col] for col in arr]
+    arr = numpy.array([[[avg, avg, avg] for avg in col] for col in avgs])
+    return pygame.surfarray.make_surface(arr)
 
 
 class Ship:
     usage_info = None
+    shelf_horizontal = None
+    shelf_vertical = None
 
     def __init__(self, size, image_path, is_horizontal):
         # size on board, in squares
@@ -10,14 +21,18 @@ class Ship:
         # path to the image
         self.image_path = image_path
         # the image itself
-        image_tmp = pg.image.load(image_path).convert_alpha()
+        image_tmp = pygame.image.load(image_path).convert_alpha()
         original_size = image_tmp.get_rect().size
         factor = 64 / 300
         new_size = (int(original_size[0] * factor), int(original_size[1] * factor))
-        self.image = pg.transform.scale(image_tmp, new_size)
+        self.image = pygame.transform.scale(image_tmp, new_size)
+        self.alternative_image = grayscale(self.image)
         self.rect = self.image.get_rect()
         self.horizontal = is_horizontal
         self.position_on_board = None
+
+    def swap_image_with_alternative(self):
+        self.image, self.alternative_image = self.alternative_image, self.image
 
     def get_rect(self):
         """
@@ -32,8 +47,8 @@ class Ship:
 
 class ShipUsageInfo:
     # Initialisation de la Font Module!
-    pg.font.init()
-    font = pg.font.Font("Always In My Heart.ttf", 25)
+    pygame.font.init()
+    font = pygame.font.Font("Always In My Heart.ttf", 25)
 
     def __init__(self, initial_count, text_coordinates):
         self.__count_unplaced = initial_count
