@@ -30,14 +30,15 @@ class Application:
         self.grid_columns = [182, 246, 311, 376, 440, 505, 569, 634, 698, 761]
         self.grid_rows = [79, 143, 207, 272, 336, 400, 464, 528, 592, 656]
         self.grid = []
-        self.ships = []
+        self.ships = set()
         for i_col in range(0, Application.GRID_WIDTH):
             grid_column = []
             for i_row in range(0, Application.GRID_HEIGHT):
                 grid_column.append(GridCell.EMPTY)
             self.grid.append(grid_column)
 
-    def find_cell_at_point(self, x, y):
+    @staticmethod
+    def find_cell_at_point(x, y):
         col = int((x - 181) / Application.GRID_CELL_SIZE)
         row = int((y - 78) / Application.GRID_CELL_SIZE)
         return col, row
@@ -57,13 +58,22 @@ class Application:
 
         return col, row
 
-    def can_drop_ship(self, first_grid_cell, ship_grid_size):
-        if first_grid_cell[0] + ship_grid_size[0] > Application.GRID_WIDTH or first_grid_cell[0] < 0:
+    def can_drop_ship(self, first_grid_cell, ship):
+        """
+        :type first_grid_cell: tuple
+        :param first_grid_cell: coordinate of the top left grid cell where the ship is trying to be placed
+        :type ship: Ship
+        :param ship:
+        :return:
+        """
+        if ship.__class__.usage_info.get_count_unplaced() == 0:
             return False
-        if first_grid_cell[1] + ship_grid_size[1] > Application.GRID_HEIGHT or first_grid_cell[1] < 0:
+        if first_grid_cell[0] + ship.size[0] > Application.GRID_WIDTH or first_grid_cell[0] < 0:
             return False
-        for i_col in range(first_grid_cell[0], first_grid_cell[0] + ship_grid_size[0]):
-            for i_row in range(first_grid_cell[1], first_grid_cell[1] + ship_grid_size[1]):
+        if first_grid_cell[1] + ship.size[1] > Application.GRID_HEIGHT or first_grid_cell[1] < 0:
+            return False
+        for i_col in range(first_grid_cell[0]-1, first_grid_cell[0] + ship.size[0]+1):
+            for i_row in range(first_grid_cell[1]-1, first_grid_cell[1] + ship.size[1]+1):
                 if not self.grid[i_col][i_row] == GridCell.EMPTY:
                     return False
 
@@ -81,7 +91,10 @@ class Application:
         x = self.grid_columns[first_grid_cell[0]]
         y = self.grid_rows[first_grid_cell[1]]
         ship.rect = ship.rect.move(x - ship.rect.x, y - ship.rect.y)
-        self.ships.append(ship)
+        self.ships.add(ship)
+        ship.position_on_board = first_grid_cell
+        ship.__class__.usage_info.decrement()
+
         for col in range(first_grid_cell[0], first_grid_cell[0] + ship.size[0]):
             for row in range(first_grid_cell[1], first_grid_cell[1] + ship.size[1]):
                 self.grid[col][row] = GridCell.HEALTHY_SHIP
@@ -90,20 +103,48 @@ class Application:
                         self.grid[col - 1][row] = GridCell.AROUND_SHIP
                     if row > 0 and self.grid[col - 1][row - 1] == GridCell.EMPTY:
                         self.grid[col - 1][row - 1] = GridCell.AROUND_SHIP
-                    if row < Application.GRID_HEIGHT-1 and self.grid[col - 1][row + 1] == GridCell.EMPTY:
+                    if row < Application.GRID_HEIGHT - 1 and self.grid[col - 1][row + 1] == GridCell.EMPTY:
                         self.grid[col - 1][row + 1] = GridCell.AROUND_SHIP
 
-                if col < Application.GRID_WIDTH-1:
+                if col < Application.GRID_WIDTH - 1:
                     if self.grid[col + 1][row] == GridCell.EMPTY:
                         self.grid[col + 1][row] = GridCell.AROUND_SHIP
                     if row > 0 and self.grid[col + 1][row - 1] == GridCell.EMPTY:
                         self.grid[col + 1][row - 1] = GridCell.AROUND_SHIP
-                    if row < Application.GRID_HEIGHT-1 and self.grid[col + 1][row + 1] == GridCell.EMPTY:
+                    if row < Application.GRID_HEIGHT - 1 and self.grid[col + 1][row + 1] == GridCell.EMPTY:
                         self.grid[col + 1][row + 1] = GridCell.AROUND_SHIP
 
                 if row > 0 and self.grid[col][row - 1] == GridCell.EMPTY:
                     self.grid[col][row - 1] = GridCell.AROUND_SHIP
-                if row < Application.GRID_HEIGHT-1 and self.grid[col][row + 1] == GridCell.EMPTY:
+                if row < Application.GRID_HEIGHT - 1 and self.grid[col][row + 1] == GridCell.EMPTY:
+                    self.grid[col][row + 1] = GridCell.AROUND_SHIP
+
+    def remove_ship(self, ship):
+        self.ships.remove(ship)
+        ship.__class__.usage_info.increment()
+        first_grid_cell = ship.position_on_board
+        for col in range(first_grid_cell[0], first_grid_cell[0] + ship.size[0]):
+            for row in range(first_grid_cell[1], first_grid_cell[1] + ship.size[1]):
+                self.grid[col][row] = GridCell.EMPTY
+                if col > 0:
+                    if self.grid[col - 1][row] == GridCell.EMPTY:
+                        self.grid[col - 1][row] = GridCell.AROUND_SHIP
+                    if row > 0 and self.grid[col - 1][row - 1] == GridCell.EMPTY:
+                        self.grid[col - 1][row - 1] = GridCell.AROUND_SHIP
+                    if row < Application.GRID_HEIGHT - 1 and self.grid[col - 1][row + 1] == GridCell.EMPTY:
+                        self.grid[col - 1][row + 1] = GridCell.AROUND_SHIP
+
+                if col < Application.GRID_WIDTH - 1:
+                    if self.grid[col + 1][row] == GridCell.EMPTY:
+                        self.grid[col + 1][row] = GridCell.AROUND_SHIP
+                    if row > 0 and self.grid[col + 1][row - 1] == GridCell.EMPTY:
+                        self.grid[col + 1][row - 1] = GridCell.AROUND_SHIP
+                    if row < Application.GRID_HEIGHT - 1 and self.grid[col + 1][row + 1] == GridCell.EMPTY:
+                        self.grid[col + 1][row + 1] = GridCell.AROUND_SHIP
+
+                if row > 0 and self.grid[col][row - 1] == GridCell.EMPTY:
+                    self.grid[col][row - 1] = GridCell.AROUND_SHIP
+                if row < Application.GRID_HEIGHT - 1 and self.grid[col][row + 1] == GridCell.EMPTY:
                     self.grid[col][row + 1] = GridCell.AROUND_SHIP
 
     def main(self):
@@ -118,7 +159,7 @@ class Application:
         # Chargement et collage du background
         background = pygame.image.load("bataille1.png").convert()
 
-        # Chargement et collage du personnage
+        # Chargement et collage du ships
         shelf_carrier_vertical = CarrierVertical()
         shelf_crusier_vertical = CruiserVertical()
         shelf_destroyer_vertical = DestroyerVertical()
@@ -129,17 +170,15 @@ class Application:
         shelf_destroyer_horizontal = DestroyerHorizontal()
         shelf_uboat_horizontal = UboatHorizontal()
 
+        ship_classes = [Carrier, Cruiser, Destroyer, Uboat]
+
         shelf_ships = [shelf_carrier_vertical, shelf_crusier_vertical, shelf_destroyer_vertical, shelf_uboat_vertical,
                        shelf_carrier_horizontal, shelf_crusier_horizontal, shelf_destroyer_horizontal,
                        shelf_uboat_horizontal]
 
-        shelf_positions = [(890, 143), (958, 143), (1026, 143), (1094, 143),
-                           (1037, 538), (1101, 470), (1165, 402), (1229, 334)]
-
         for i_shelf_ship in range(0, len(shelf_ships)):
             shelf_ship = shelf_ships[i_shelf_ship]
-            # main_window.blit(shelf_ship.get_image(), (0, 0))
-            shelf_ship.rect = shelf_ship.rect.move(shelf_positions[i_shelf_ship])
+            shelf_ship.rect = shelf_ship.rect.move(shelf_ship.get_shelf_position())
             main_window.blit(shelf_ship.get_image(), shelf_ship.rect)
 
         # Rafraîchissement de l'écran
@@ -164,6 +203,8 @@ class Application:
                         mode = Mode.COORDINATE
 
             main_window.blit(background, (0, 0))
+            for ship_class in ship_classes:
+                main_window.blit(ship_class.usage_info.text, ship_class.usage_info.text_coordinates)
 
             if mode == Mode.COORDINATE:
                 for i_shelf_ship in range(0, len(shelf_ships)):
@@ -177,30 +218,38 @@ class Application:
                     mouse_up = True
             elif mode == Mode.PLACEMENT:
                 # draw shelf
-                for i_shelf_ship in range(0, len(shelf_ships)):
-                    shelf_ship = shelf_ships[i_shelf_ship]
+                for shelf_ship in shelf_ships:
                     main_window.blit(shelf_ship.get_image(), shelf_ship.rect)
+                    # a shelf ship has been clicked
                     if event.type == MOUSEBUTTONDOWN and \
                             shelf_ship.rect.collidepoint(event.pos) and ship_chosen_for_placement is None:
                         ShipClass = shelf_ship.__class__
                         print("Making ship: ", ShipClass.__name__)
                         ship_chosen_for_placement = ShipClass()
 
+                ship_picked_up = False
                 for ship in self.ships:
                     main_window.blit(ship.get_image(), ship.rect)
+                    # a non-shelf ship has been clicked
+                    if event.type == MOUSEBUTTONDOWN and \
+                            ship.rect.collidepoint(event.pos) and ship_chosen_for_placement is None:
+                        ship_chosen_for_placement = ship
+                        ship_picked_up = True
+                if ship_picked_up:
+                    self.remove_ship(ship_chosen_for_placement)
 
-                if ship_chosen_for_placement is not None:
+                if ship_chosen_for_placement is not None: # a ship is being dragged
                     ship_chosen_for_placement.rect.center = event.pos
                     main_window.blit(ship_chosen_for_placement.get_image(), ship_chosen_for_placement.rect)
                 if event.type == MOUSEBUTTONDOWN and mouse_up:
                     mouse_up = False
                 elif event.type == MOUSEBUTTONUP:
                     mouse_up = True
-                    if ship_chosen_for_placement is not None:
+                    if ship_chosen_for_placement is not None: # ship is being dropped
                         coords = self.determine_dropped_ship_location(ship_chosen_for_placement.rect,
                                                                       ship_chosen_for_placement.size)
-                        print(coords)
-                        if self.can_drop_ship(coords, ship_chosen_for_placement.size):
+                        print("Placing ship at ", coords)
+                        if self.can_drop_ship(coords, ship_chosen_for_placement):
                             self.drop_ship(coords, ship_chosen_for_placement)
                         ship_chosen_for_placement = None
 
